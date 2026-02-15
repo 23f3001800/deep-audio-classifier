@@ -1,7 +1,9 @@
 # dl-genai-project-26-t1
 
-🎵 Messy Mashup: Audio Spectrogram Transformer (AST)
-Model Description
+## 🎵 Messy Mashup: Audio Spectrogram Transformer (AST)
+
+# Model Description
+
 This model is a fine-tuned Audio Spectrogram Transformer (AST) designed for robust music genre classification in highly degraded, noisy, and chaotic audio environments. It was specifically developed for the Messy Mashup Challenge, which requires the model to classify genres from dynamically time-stretched tracks mixed with random environmental noise.
 
 Base Model: MIT/ast-finetuned-audioset-10-10-0.4593
@@ -12,7 +14,8 @@ Input: Raw 1D Audio Waveforms (converted to 2D Mel-spectrograms under the hood)
 
 Output: Predicted Genre Label (e.g., Jazz, Metal, Pop)
 
-🏗️ Architecture & Training Pipeline
+## 🏗️ Architecture & Training Pipeline
+
 Standard models fail on this dataset because they overfit to pristine studio stems. This model overcomes that domain shift through a custom-built Combinatorial Domain Randomization Engine.
 
 During training, the model never sees the same track twice. The PyTorch DataLoader operates as a dynamic audio synthesizer:
@@ -25,11 +28,11 @@ Stochastic Noise Injection: Randomly samples environmental audio from the ESC-50
 
 Global Self-Attention: The AST processes the resulting Mel-spectrogram, using attention mechanisms to mathematically isolate the harmonic structure of the genre while ignoring the injected ESC-50 noise patches.
 
-📊 Classes
+## 📊 Classes
 The model is trained to recognize the following 10 genres:
 blues, classical, country, disco, hiphop, jazz, metal, pop, reggae, rock
 
-💻 How to Use
+## 💻 How to Use
 You can easily load this model for inference using the Hugging Face transformers library:
 
 Python
