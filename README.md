@@ -1,4 +1,4 @@
-# dl-genai-project-26-t1
+## deep-audio-classifier
 
 *name* : vikas
 *roll_number: 23f3001800
