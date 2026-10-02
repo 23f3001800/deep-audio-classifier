@@ -15,8 +15,8 @@ models = json.loads(read("https://huggingface.co/api/models?author=Vikas25S&full
 inventory = {"models": [], "upload_credential_available": bool(os.getenv("HF_TOKEN"))}
 for entry in models:
     model_id = entry["id"]
-    item = {"id": model_id, "sha": entry.get("sha"), "pipeline_tag": entry.get("pipeline_tag")}
-    for filename in ("README.md", "config.json", "preprocessor_config.json"):
+    item = {"id": model_id, "sha": entry.get("sha"), "pipeline_tag": entry.get("pipeline_tag"), "files": [s["rfilename"] for s in entry.get("siblings", [])]}
+    for filename in ("README.md", "config.json", "preprocessor_config.json", "adapter_config.json"):
         try:
             item[filename] = read(f"https://huggingface.co/{model_id}/resolve/{entry.get('sha') or 'main'}/{filename}")
         except HTTPError as error:
