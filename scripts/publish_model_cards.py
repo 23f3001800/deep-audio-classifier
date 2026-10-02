@@ -25,6 +25,10 @@ def main():
         ModelCard.load(str(path)).validate()
         current = api.model_info(item["repo_id"]).sha
         if current != item["parent_commit"]:
+            existing = Path(hf_hub_download(item["repo_id"], "README.md", revision=current))
+            if existing.read_bytes() == path.read_bytes():
+                print("Already published:", item["repo_id"])
+                continue
             raise RuntimeError(f"{item['repo_id']} changed; review its current README before uploading")
         pending.append((item, path))
         print("Ready:", item["repo_id"])
