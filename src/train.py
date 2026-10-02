@@ -1,3 +1,18 @@
+"""Training helpers for the Messy Mashup notebook.
+
+Pass the notebook configuration explicitly as config=CFG. Data loaders and model
+construction remain in the notebook; importing this module does not start a run.
+"""
+import math
+from pathlib import Path
+
+import torch
+from torch import nn
+from torch.cuda.amp import GradScaler, autocast
+from torch.optim.lr_scheduler import CosineAnnealingLR
+from sklearn.metrics import accuracy_score, f1_score
+from tqdm.auto import tqdm
+
 # ============================================================
 #  SECTION 14: UNIFIED TRAINING LOOP
 #  Works for CRNN, AST, and HuBERT with identical WandB metrics
@@ -42,7 +57,9 @@ def train_one_epoch(model, loader, optimizer, scheduler,
  
         with autocast():
             logits = _forward(model, x, model_name)
-            loss   = criterion(logits, labels) / accum_steps
+            window_start = (step // accum_steps) * accum_steps
+            window_size = min(accum_steps, len(loader) - window_start)
+            loss = criterion(logits, labels) / window_size
  
         scaler.scale(loss).backward()
  
@@ -58,8 +75,8 @@ def train_one_epoch(model, loader, optimizer, scheduler,
         preds = logits.detach().argmax(dim=-1).cpu().numpy()
         all_preds.extend(preds)
         all_labels.extend(labels.cpu().numpy())
-        total_loss += loss.item() * accum_steps
-        pbar.set_postfix(loss=f"{loss.item()*accum_steps:.4f}")
+        total_loss += loss.item() * window_size
+        pbar.set_postfix(loss=f"{loss.item()*window_size:.4f}")
  
     avg_loss = total_loss / len(loader)
     macro_f1 = f1_score(all_labels, all_preds, average="macro")
@@ -95,7 +112,7 @@ def validate_one_epoch(model, loader, criterion, device, model_name, epoch):
     print(f"\n   Per-class F1 [{model_name}]:")
     for i, v in enumerate(per_class_f1):
         bar = "█" * int(v * 20)
-        print(f"   {CFG.IDX2GENRE[i]:12s} {bar:<20s} {v:.3f}")
+        print(f"   {i:12d} {bar:<20s} {v:.3f}")
  
     return avg_loss, macro_f1, accuracy, per_class_f1
  
@@ -110,7 +127,8 @@ def run_two_phase_training(
         accum_steps=1,
         phase2_unfreeze_fn=None,
         class_weights  = None, 
-        phase2_optimizer_fn=None):
+        phase2_optimizer_fn=None,
+        config=None):
     """
     Generic 2-phase trainer used for all 3 models.
  
@@ -120,11 +138,22 @@ def run_two_phase_training(
     All WandB keys are IDENTICAL across models so runs can be compared
     side-by-side in WandB's grouping/comparison UI.
     """
-    device    = CFG.DEVICE
+    import wandb
+
+    if config is None:
+        raise ValueError("Pass the notebook configuration as config=CFG")
+    if phase1_epochs < 1 or phase2_epochs < 0 or accum_steps < 1:
+        raise ValueError("Invalid epoch or gradient accumulation count")
+    if not len(train_loader) or not len(val_loader):
+        raise ValueError("Training and validation loaders must be nonempty")
+    Path(save_path).parent.mkdir(parents=True, exist_ok=True)
+    device = config.DEVICE
+    if class_weights is not None:
+        class_weights = torch.as_tensor(class_weights, dtype=torch.float32, device=device)
     criterion = nn.CrossEntropyLoss(weight = class_weights,
                                     label_smoothing=0.1)
     scaler    = GradScaler()
-    best_f1   = 0.0
+    best_f1   = float("-inf")
     best_state = None
  
     total_epochs = phase1_epochs + phase2_epochs
@@ -140,16 +169,13 @@ def run_two_phase_training(
             "phase1_lr"     : phase1_lr,
             "phase2_lr"     : phase2_lr,
             "accum_steps"   : accum_steps,
-            "sample_rate"   : CFG.SAMPLE_RATE,
-            "clip_duration" : CFG.CLIP_DURATION,
+            "sample_rate"   : config.SAMPLE_RATE,
+            "clip_duration" : config.CLIP_DURATION,
             "augmentations" : "stem_mix+time_stretch+pitch_shift+"
                               "esc50_noise+specaugment",
         }
     )
  
-    criterion = nn.CrossEntropyLoss(label_smoothing=0.1)
-    scaler    = GradScaler()
-    best_f1   = 0.0
  
     # ╔══════════════════════════════════════════╗
     # ║ PHASE 1 — Head training (or full CRNN)  ║
@@ -190,7 +216,7 @@ def run_two_phase_training(
             "val_f1"      : val_f1,
             "val_acc"     : val_acc,
             "overfit_gap" : tr_f1 - val_f1,
-            **{f"val_f1_{CFG.IDX2GENRE[i]}": v for i, v in enumerate(per_cls)}
+            **{f"val_f1_{getattr(config, 'IDX2GENRE', {}).get(i, str(i))}": v for i, v in enumerate(per_cls)}
         })
  
         print(f"\n  [{model_name}] Ph1 Ep{epoch:02d} | "
@@ -221,6 +247,7 @@ def run_two_phase_training(
  
     # Load best Phase 1 weights as starting point
     model.load_state_dict(best_state)
+    torch.save(best_state, save_path)
     model = model.to(device)
     print(f"  ✅ Loaded best Ph1 weights (f1={best_f1:.4f})")
  
@@ -232,7 +259,7 @@ def run_two_phase_training(
             model.parameters(), lr=phase2_lr, weight_decay=0.01
         )
  
-    total_steps_p2 = phase2_epochs * len(train_loader)
+    total_steps_p2 = max(1, phase2_epochs * math.ceil(len(train_loader) / accum_steps))
     scheduler_p2   = CosineAnnealingLR(optimizer_p2,
                                         T_max=total_steps_p2, eta_min=1e-7)
  
@@ -266,7 +293,7 @@ def run_two_phase_training(
             "val_f1"      : val_f1,
             "val_acc"     : val_acc,
             "overfit_gap" : tr_f1 - val_f1,
-            **{f"val_f1_{CFG.IDX2GENRE[i]}": v for i, v in enumerate(per_cls)}
+            **{f"val_f1_{getattr(config, 'IDX2GENRE', {}).get(i, str(i))}": v for i, v in enumerate(per_cls)}
         })
  
         print(f"\n  [{model_name}] Ph2 Ep{epoch:02d} | "
@@ -299,10 +326,13 @@ def run_two_phase_training(
  
     # Upload to KaggleHub
     save_dir = str(Path(save_path).parent)
-    print(f"📤 Uploading {model_name} → {kaggle_handle}")
-    kagglehub.model_upload(handle=kaggle_handle, local_model_dir=save_dir)
-    print(f"✅ Uploaded → {kaggle_handle}")
+    if kaggle_handle:
+        import kagglehub
+
+        kagglehub.model_upload(handle=kaggle_handle, local_model_dir=save_dir)
+        print(f"Uploaded to {kaggle_handle}")
  
     wandb.finish()
     return model, best_f1
  
+

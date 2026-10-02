@@ -121,7 +121,7 @@ for genre, prob in zip(genres, probs.tolist()):
 
 ### Dataset
 
-- **Training data:** 1,000 songs × 10 genres × 4 stems (drums, vocals, bass, other)
+- **Training data:** 1,000 songs total across 10 genres × 4 stems (drums, vocals, bass, other)
 - **Test data:** 3,020 noisy mashups — stems from different songs + ESC-50 environmental noise
 - **Validation split:** Last 10 songs per genre held out (100 songs total, deterministic)
 
@@ -144,12 +144,10 @@ Environmental noise (ESC-50) was injected during training in 3 stages:
 - Phase 2 (15 epochs): full model fine-tuned with Layer-wise LR Decay (LLRD, decay=0.85)
 
 **Class-weighted loss**
-Weights tuned to address hard genres (rock, blues, reggae consistently confused):
-
-```
-rock=1.40  blues=1.30  reggae=1.20  country=1.10
-metal=0.95  jazz=0.50  classical=0.50
-```
+The trainer accepts optional class weights and now preserves them through both
+phases. The extracted script previously replaced the weighted criterion with an
+unweighted one. Existing published scores have not been rerun with this fix, so
+there is no measured F1 improvement to report yet.
 
 **Augmentations applied during training**
 - Time stretch ±15% (P=0.50)
@@ -192,6 +190,7 @@ EARLY_STOPPING  = 5           # patience
 
 ## Limitations
 
+- The reported 0.8871 macro F1 is a historical validation result, not an independent test score.
 - Trained on 30-second stems at 16kHz. Very short clips (< 5s) may produce unreliable results.
 - Performance degrades on genres with high acoustic overlap (rock/blues/reggae trio).
 - Optimised for noisy mashup conditions — clean single-instrument audio may behave differently from the training distribution.
@@ -239,3 +238,27 @@ Released under the [MIT License](LICENSE).
 ## Author
 
 **Vikas** — Roll No. 23f3001800 — Jan 2026 Deep Learning Project
+
+
+## Reproducing training
+
+The full data preparation and model construction live in
+`notebooks/dl-23f3001800-notebook-t12026.ipynb`. The extracted `src/train.py`
+contains the shared training loop, not a complete command-line training pipeline.
+Install `requirements-training.txt` for notebook training; `requirements.txt`
+continues to describe the inference app.
+
+When importing `run_two_phase_training`, pass the notebook configuration explicitly
+with `config=CFG`. It must provide `DEVICE`, `SAMPLE_RATE`, and `CLIP_DURATION`.
+Pass `kaggle_handle=None` to keep checkpoints local. The trainer saves the best
+first-phase checkpoint before continuing, so a second phase without improvement
+can still reload the best model.
+
+```bash
+python -m unittest discover -s tests -v
+```
+
+These CPU tests check loss weighting, checkpoint retention and a final partial
+gradient-accumulation window. They do not retrain the published model. Before a
+new benchmark, record the dataset version, song-level split, seed, dependency
+versions and checkpoint hash, then report validation and test results separately.

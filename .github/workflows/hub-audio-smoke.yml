@@ -1,0 +1,26 @@
+name: Published audio checkpoint smoke test
+on:
+  push:
+    branches: [validation/model-cards-2026-10-02]
+    paths: [scripts/smoke_hub_audio.py, .github/workflows/hub-audio-smoke.yml]
+permissions:
+  contents: read
+jobs:
+  inference:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install torch==2.8.0 --index-url https://download.pytorch.org/whl/cpu
+      - run: pip install transformers==4.57.1 'numpy<3' librosa soundfile huggingface_hub
+      - run: python scripts/smoke_hub_audio.py
+      - run: pip freeze > hub-smoke-results/dependencies.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: published-audio-smoke
+          path: hub-smoke-results/
+          retention-days: 14
