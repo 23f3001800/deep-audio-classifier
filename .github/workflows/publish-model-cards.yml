@@ -1,0 +1,33 @@
+name: Validate and publish model cards
+on:
+  push:
+    branches: [validation/model-cards-2026-10-02]
+    paths: [model-cards/**, scripts/publish_model_cards.py, .github/workflows/publish-model-cards.yml]
+permissions:
+  contents: read
+jobs:
+  cards:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install huggingface_hub
+      - name: Validate cards and expected Hub revisions
+        run: python scripts/publish_model_cards.py
+      - name: Publish README files when authenticated
+        if: env.HF_TOKEN != ''
+        run: python scripts/publish_model_cards.py --apply
+      - name: Report missing publishing credential
+        if: env.HF_TOKEN == ''
+        run: echo 'Cards validated; publishing requires the HF_TOKEN repository secret for Vikas25S.'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: model-card-publication
+          path: model-cards/publish-receipt.json
+          if-no-files-found: ignore

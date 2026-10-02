@@ -1,0 +1,49 @@
+{
+  "model": "Vikas25S/messy-mashup-ast-v2",
+  "revision": "eeef47a362c32313b6c4df23e126675e16c0eb9c",
+  "run_id": "37021499380",
+  "finished_at": "2026-10-02T14:41:34.812866+00:00",
+  "python": "3.11.16",
+  "torch": "2.8.0+cpu",
+  "device": "cpu",
+  "threads": 2,
+  "parameter_count": 86196490,
+  "weights_sha256": "dc38dd0ebf3428bc9bbec6c86b57b8ca6ae19f8d59fe62d5bfb118cc35855d17",
+  "cases": [
+    {
+      "input": "silence",
+      "input_sha256": "3d00ed86b663cd1b8ac82b105257cd109412f92dca442048532439f920a7f645",
+      "shape": [
+        1,
+        10
+      ],
+      "finite": true,
+      "repeatable": true,
+      "two_forward_passes_ms": 3631.706374000004
+    },
+    {
+      "input": "tone_440hz",
+      "input_sha256": "4a38afc2ce72b8c4489d6c901fa7d0e99ae0825d2019cbb35ed2c513e71ff2a6",
+      "shape": [
+        1,
+        10
+      ],
+      "finite": true,
+      "repeatable": true,
+      "two_forward_passes_ms": 3659.6505269999966
+    },
+    {
+      "input": "noise_seed42",
+      "input_sha256": "d2ab009cb763a8d52cb04c983e0e207eb0e2aa0081923a45fec89015089c0182",
+      "shape": [
+        1,
+        10
+      ],
+      "finite": true,
+      "repeatable": true,
+      "two_forward_passes_ms": 3623.3023199999934
+    }
+  ],
+  "accuracy_evaluated": false,
+  "scope": "Synthetic silence, tone and noise test loading, shape, numerical stability and repeatability only. No genre ground truth."
+}
