@@ -171,7 +171,41 @@ EARLY_STOPPING  = 5           # patience
 
 ---
 
-## Per-Class Results
+## Evaluations
+
+### Fresh checks — 2 October 2026
+
+| Check | Result | What it establishes |
+|---|---|---|
+| Training regression tests | 2 passed | Weighted loss, best-checkpoint retention and partial gradient accumulation |
+| Published AST-v2 loading | Passed on CPU | Actual weights and saved feature extractor load in a clean runtime |
+| Inference on silence, 440 Hz tone and seeded noise | 3 inputs passed; 6 forward passes | Finite `(1, 10)` logits and repeatable outputs |
+| Genre labels and input rate | Verified | Ten named classes; 16 kHz feature extractor |
+| Independent labelled genre test | Not run | No fresh test accuracy or F1 is claimed |
+
+[Real checkpoint run](https://github.com/23f3001800/deep-audio-classifier/actions/runs/37021499380)
+· [Training tests](https://github.com/23f3001800/deep-audio-classifier/actions/runs/37016798917)
+· [Machine-readable receipt](model-cards/audio-smoke.json).
+
+The evaluated Hub revision is `eeef47a362c32313b6c4df23e126675e16c0eb9c`, with
+86,196,490 parameters. The receipt records the weights hash, input hashes,
+runtime and timings. Synthetic inputs test the inference path, not music-genre
+accuracy. The reported **0.8871 validation macro F1** and **0.8905 validation
+accuracy** below remain historical and have not been independently reproduced
+for this checkpoint. The trainer fixes have not retrained the published weights.
+
+### Published model cards
+
+Cards for [AST-v2](https://huggingface.co/Vikas25S/messy-mashup-ast-v2),
+[AST](https://huggingface.co/Vikas25S/messy-mashup-ast),
+[legacy AST](https://huggingface.co/Vikas25S/ast-messy-mashup-classifier),
+[ensemble artifacts](https://huggingface.co/Vikas25S/messy-mashup-ensemble) and
+[the email adapter](https://huggingface.co/Vikas25S/llama-3.2-email-formatter)
+were published and their contents verified. See the
+[publication receipt](model-cards/publish-receipt.json) and
+[recommended next models](model-cards/RECOMMENDATIONS.md).
+
+### Historical per-class validation results
 
 | Genre | Validation F1 | Notes |
 |---|---|---|
